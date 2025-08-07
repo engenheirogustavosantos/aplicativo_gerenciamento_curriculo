@@ -24,6 +24,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   String? _areaDeInteresseSelecionada;
   String _setorSelecionado = 'Privado';
+  // Valor inicial garantido para o gênero
+  String _generoSelecionado = 'Feminino'; 
 
   Future<void> _selecionarFoto() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -50,32 +52,32 @@ class _CadastroScreenState extends State<CadastroScreen> {
   }
 
   void _submeterFormulario() {
-    if (_formKey.currentState!.validate()) {
-      if (_fotoBytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, anexe uma foto.')),
-        );
-        return;
-      }
-      if (_pdfBytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, anexe seu currículo em PDF.')),
-        );
-        return;
-      }
-
-      final novoCurriculo = Curriculo(
-        nome: _nomeController.text,
-        idade: int.parse(_idadeController.text),
-        genero: 'Não informado',
-        areaDeInteresse: _areaDeInteresseSelecionada!,
-        setor: _setorSelecionado,
-        avatarUrl: '', // Vazio, pois usaremos os bytes
-        fotoBytes: _fotoBytes,
-      );
-
-      Navigator.of(context).pop(novoCurriculo);
+    // Valida o formulário antes de continuar
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+
+    // Valida o anexo de arquivos
+    if (_fotoBytes == null || _pdfBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, anexe a foto e o currículo em PDF.')),
+      );
+      return;
+    }
+
+    // Cria o objeto Curriculo com os dados mais recentes do estado
+    final novoCurriculo = Curriculo(
+      nome: _nomeController.text,
+      idade: int.parse(_idadeController.text),
+      genero: _generoSelecionado, // Usa o valor da variável de estado
+      areaDeInteresse: _areaDeInteresseSelecionada!,
+      setor: _setorSelecionado,
+      avatarUrl: '', // Vazio, pois estamos usando os bytes da imagem
+      fotoBytes: _fotoBytes,
+    );
+
+    // Envia o objeto Curriculo de volta para a HomeScreen
+    Navigator.of(context).pop(novoCurriculo);
   }
 
   @override
@@ -132,6 +134,51 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     value!.isEmpty ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
+              const Text('Gênero', style: TextStyle(fontSize: 16)),
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: const Text('Feminino'),
+                      value: 'Feminino',
+                      contentPadding: EdgeInsets.zero,
+                      groupValue: _generoSelecionado,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _generoSelecionado = value);
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: const Text('Masculino'),
+                      value: 'Masculino',
+                      contentPadding: EdgeInsets.zero,
+                      groupValue: _generoSelecionado,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _generoSelecionado = value);
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: const Text('Outro'),
+                      value: 'Outro',
+                      contentPadding: EdgeInsets.zero,
+                      groupValue: _generoSelecionado,
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _generoSelecionado = value);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _areaDeInteresseSelecionada,
                 hint: const Text('Área de Interesse'),
@@ -154,8 +201,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       value: 'Privado',
                       groupValue: _setorSelecionado,
                       onChanged: (value) {
-                        if (value != null)
+                        if (value != null) {
                           setState(() => _setorSelecionado = value);
+                        }
                       },
                     ),
                   ),
@@ -165,8 +213,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       value: 'Público',
                       groupValue: _setorSelecionado,
                       onChanged: (value) {
-                        if (value != null)
+                        if (value != null) {
                           setState(() => _setorSelecionado = value);
+                        }
                       },
                     ),
                   ),

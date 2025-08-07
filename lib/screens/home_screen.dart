@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/curriculo_model.dart';
 import '../widgets/filtro_drawer.dart';
@@ -12,7 +13,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // A lista principal que guarda todos os currículos, incluindo os novos
   final List<Curriculo> _todosOsCurriculos = mockCurriculos;
+  // A lista que é efetivamente exibida na tela, após os filtros
   late List<Curriculo> _curriculosFiltrados;
 
   final List<String> _areasDeInteresse = [
@@ -23,44 +26,48 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // No início, a lista filtrada é igual à lista completa
     _curriculosFiltrados = _todosOsCurriculos;
   }
 
   void _abrirTelaDeCadastro() async {
     final novoCurriculo = await Navigator.of(context).push<Curriculo>(
       MaterialPageRoute(
-        builder: (context) => CadastroScreen(areasDeInteresse: _areasDeInteresse),
+        builder: (context) =>
+            CadastroScreen(areasDeInteresse: _areasDeInteresse),
       ),
     );
 
+    // Se a tela de cadastro retornou um currículo, adicione-o à lista
     if (novoCurriculo != null) {
       setState(() {
         _todosOsCurriculos.insert(0, novoCurriculo);
-        _aplicarFiltros({});
+        // Re-aplica os filtros atuais (ou nenhum) para atualizar a lista visível
+        _aplicarFiltros({}); 
       });
     }
   }
 
   void _aplicarFiltros(Map<String, dynamic> filters) {
+    // Começa com uma cópia da lista completa de currículos
     List<Curriculo> listaTemporaria = List.from(_todosOsCurriculos);
 
-    if (filters['areaDeInteresse'] != null) {
+    // Aplica cada filtro ativo
+    if (filters.containsKey('areaDeInteresse') && filters['areaDeInteresse'] != null) {
       listaTemporaria = listaTemporaria.where((c) => c.areaDeInteresse == filters['areaDeInteresse']).toList();
     }
-
-    if (filters['genero'] != null) {
+    if (filters.containsKey('genero') && filters['genero'] != null) {
       listaTemporaria = listaTemporaria.where((c) => c.genero == filters['genero']).toList();
     }
-
-    if (filters['idadeRange'] != null) {
+    if (filters.containsKey('idadeRange')) {
       final RangeValues range = filters['idadeRange'];
       listaTemporaria = listaTemporaria.where((c) => c.idade >= range.start && c.idade <= range.end).toList();
     }
-    
-    if (filters['setor'] != null) {
+    if (filters.containsKey('setor') && filters['setor'] != null) {
       listaTemporaria = listaTemporaria.where((c) => c.setor == filters['setor']).toList();
     }
 
+    // Atualiza o estado para que a UI reflita a lista filtrada
     setState(() {
       _curriculosFiltrados = listaTemporaria;
     });
@@ -109,40 +116,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// O CurriculoCard já exibia o gênero, mas confirmamos que está correto.
 class CurriculoCard extends StatelessWidget {
   final Curriculo curriculo;
 
   const CurriculoCard({Key? key, required this.curriculo}) : super(key: key);
 
   ImageProvider _getImage(Curriculo curriculo) {
-  // 1. Se tivermos os bytes da foto (novos currículos), use-os.
-  if (curriculo.fotoBytes != null) {
-    return MemoryImage(curriculo.fotoBytes!);
+    if (curriculo.fotoBytes != null) {
+      return MemoryImage(curriculo.fotoBytes!);
+    }
+    final path = curriculo.avatarUrl;
+    if (path.startsWith('http')) {
+      return NetworkImage(path);
+    } else if (path.startsWith('assets/')) {
+      return AssetImage(path);
+    } else {
+      return FileImage(File(path));
+    }
   }
-  
-  // 2. Senão, use a lógica antiga para os currículos de mock.
-  final path = curriculo.avatarUrl;
-  if (path.startsWith('http')) {
-    return NetworkImage(path);
-  } else if (path.startsWith('assets/')) {
-    return AssetImage(path);
-  } else {
-    // Para compatibilidade com arquivos locais no mobile (caso ainda use)
-    return FileImage(File(path));
-  }
-}
 
-@override
-Widget build(BuildContext context) {
-  return Card(
-    // ...
-    child: ListTile(
-      leading: CircleAvatar(
-        radius: 30,
-        // Passe o objeto curriculo inteiro para a função
-        backgroundImage: _getImage(curriculo),
-        backgroundColor: Colors.grey[200],
-      ),
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 4.0,
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: 30,
+          backgroundImage: _getImage(curriculo),
+          backgroundColor: Colors.grey[200],
+        ),
         title: Text(
           curriculo.nome,
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -152,6 +157,7 @@ Widget build(BuildContext context) {
           children: [
             const SizedBox(height: 4.0),
             Text('Idade: ${curriculo.idade} anos'),
+            Text('Gênero: ${curriculo.genero}'), // Confirmação da exibição
             Text('Área: ${curriculo.areaDeInteresse}'),
             Text('Setor: ${curriculo.setor}'),
           ],
