@@ -3,11 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/curriculo_model.dart';
+import 'home_screen.dart';
 
 class CadastroScreen extends StatefulWidget {
   final List<String> areasDeInteresse;
+  final Curriculo? curriculoParaEditar; // 1. NOVO PARÂMETRO OPCIONAL
 
-  const CadastroScreen({Key? key, required this.areasDeInteresse}) : super(key: key);
+  const CadastroScreen({
+    Key? key,
+    required this.areasDeInteresse,
+    this.curriculoParaEditar, // Adicionado ao construtor
+  }) : super(key: key);
 
   @override
   State<CadastroScreen> createState() => _CadastroScreenState();
@@ -15,33 +21,61 @@ class CadastroScreen extends StatefulWidget {
 
 class _CadastroScreenState extends State<CadastroScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nomeController = TextEditingController();
-  final _idadeController = TextEditingController();
+  late TextEditingController _nomeController;
+  late TextEditingController _idadeController;
 
   Uint8List? _fotoBytes;
   Uint8List? _pdfBytes;
   String? _pdfName;
 
   String? _areaDeInteresseSelecionada;
-  String _setorSelecionado = 'Privado';
-  // Valor inicial garantido para o gênero
-  String _generoSelecionado = 'Feminino'; 
+  late String _setorSelecionado;
+  late String _generoSelecionado;
 
+  @override
+  void initState() {
+    super.initState();
+
+    // 2. PRÉ-PREENCHER O FORMULÁRIO SE ESTIVER EDITANDO
+    final curriculo = widget.curriculoParaEditar;
+    if (curriculo != null) {
+      // Preenche os campos de texto
+      _nomeController = TextEditingController(text: curriculo.nome);
+      _idadeController = TextEditingController(text: curriculo.idade.toString());
+      
+      // Preenche os seletores
+      _generoSelecionado = curriculo.genero;
+      _areaDeInteresseSelecionada = curriculo.areaDeInteresse;
+      _setorSelecionado = curriculo.setor;
+
+      // Preenche os arquivos
+      _fotoBytes = curriculo.fotoBytes;
+      _pdfBytes = curriculo.pdfBytes;
+      if (_pdfBytes != null) {
+        _pdfName = 'curriculo_${curriculo.nome}.pdf';
+      }
+
+    } else {
+      // Inicia os campos vazios se for um novo cadastro
+      _nomeController = TextEditingController();
+      _idadeController = TextEditingController();
+      _generoSelecionado = 'Feminino';
+      _setorSelecionado = 'Privado';
+    }
+  }
+
+  // ... (funções _selecionarFoto e _selecionarPdf continuam as mesmas) ...
   Future<void> _selecionarFoto() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
-      setState(() {
-        _fotoBytes = bytes;
-      });
+      setState(() { _fotoBytes = bytes; });
     }
   }
 
   Future<void> _selecionarPdf() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: true,
+      type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
     );
     if (result != null && result.files.single.bytes != null) {
       setState(() {
@@ -51,33 +85,27 @@ class _CadastroScreenState extends State<CadastroScreen> {
     }
   }
 
-  void _submeterFormulario() {
-    // Valida o formulário antes de continuar
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
 
-    // Valida o anexo de arquivos
+  void _submeterFormulario() {
+    if (!_formKey.currentState!.validate()) return;
     if (_fotoBytes == null || _pdfBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, anexe a foto e o currículo em PDF.')),
-      );
+          const SnackBar(content: Text('Por favor, anexe a foto e o PDF.')));
       return;
     }
 
-    // Cria o objeto Curriculo com os dados mais recentes do estado
-    final novoCurriculo = Curriculo(
+    final curriculoAtualizado = Curriculo(
       nome: _nomeController.text,
       idade: int.parse(_idadeController.text),
-      genero: _generoSelecionado, // Usa o valor da variável de estado
+      genero: _generoSelecionado,
       areaDeInteresse: _areaDeInteresseSelecionada!,
       setor: _setorSelecionado,
-      avatarUrl: '', // Vazio, pois estamos usando os bytes da imagem
+      avatarUrl: widget.curriculoParaEditar?.avatarUrl ?? '', // Mantém URL antiga se houver
       fotoBytes: _fotoBytes,
+      pdfBytes: _pdfBytes,
     );
 
-    // Envia o objeto Curriculo de volta para a HomeScreen
-    Navigator.of(context).pop(novoCurriculo);
+    Navigator.of(context).pop(curriculoAtualizado);
   }
 
   @override
@@ -91,11 +119,25 @@ class _CadastroScreenState extends State<CadastroScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cadastrar Currículo'),
+        // 3. TÍTULO DINÂMICO
+        title: Text(widget.curriculoParaEditar == null
+            ? 'Cadastrar Currículo'
+            : 'Editar Currículo'),
         backgroundColor: const Color(0xFF0B671A),
+        actions: [
+          TextButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.share),
+            label: const Text('Compartilhar Link'),
+            
+          )
+        ],
       ),
+      // O resto do body do formulário continua exatamente o mesmo
+      // pois ele já lê os valores das variáveis de estado que agora são pré-preenchidas.
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        // ... (código do formulário idêntico ao anterior)
+         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
@@ -144,9 +186,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       contentPadding: EdgeInsets.zero,
                       groupValue: _generoSelecionado,
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _generoSelecionado = value);
-                        }
                       },
                     ),
                   ),
@@ -157,10 +198,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       contentPadding: EdgeInsets.zero,
                       groupValue: _generoSelecionado,
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _generoSelecionado = value);
-                        }
-                      },
+      },
                     ),
                   ),
                   Expanded(
@@ -170,9 +210,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       contentPadding: EdgeInsets.zero,
                       groupValue: _generoSelecionado,
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _generoSelecionado = value);
-                        }
                       },
                     ),
                   ),
@@ -201,9 +240,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       value: 'Privado',
                       groupValue: _setorSelecionado,
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _setorSelecionado = value);
-                        }
                       },
                     ),
                   ),
@@ -213,9 +251,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       value: 'Público',
                       groupValue: _setorSelecionado,
                       onChanged: (value) {
-                        if (value != null) {
+                        if (value != null)
                           setState(() => _setorSelecionado = value);
-                        }
                       },
                     ),
                   ),
@@ -238,7 +275,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     textStyle: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
-                child: const Text('ENVIAR CURRÍCULO'),
+                child: const Text('SALVAR ALTERAÇÕES'),
               ),
             ],
           ),

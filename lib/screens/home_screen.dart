@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/curriculo_model.dart';
 import '../widgets/filtro_drawer.dart';
 import 'cadastro_screen.dart';
+import 'detalhes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -13,9 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // A lista principal que guarda todos os currículos, incluindo os novos
   final List<Curriculo> _todosOsCurriculos = mockCurriculos;
-  // A lista que é efetivamente exibida na tela, após os filtros
   late List<Curriculo> _curriculosFiltrados;
 
   final List<String> _areasDeInteresse = [
@@ -26,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // No início, a lista filtrada é igual à lista completa
     _curriculosFiltrados = _todosOsCurriculos;
   }
 
@@ -38,36 +36,56 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    // Se a tela de cadastro retornou um currículo, adicione-o à lista
     if (novoCurriculo != null) {
       setState(() {
         _todosOsCurriculos.insert(0, novoCurriculo);
-        // Re-aplica os filtros atuais (ou nenhum) para atualizar a lista visível
-        _aplicarFiltros({}); 
+        _aplicarFiltros({});
       });
     }
   }
 
+  void atualizarCurriculo(Curriculo curriculoAtualizado, Curriculo curriculoAntigo) {
+    final index = _todosOsCurriculos.indexOf(curriculoAntigo);
+    if (index != -1) {
+      setState(() {
+        _todosOsCurriculos[index] = curriculoAtualizado;
+        _aplicarFiltros({});
+      });
+    }
+  }
+
+  // MÉTODO QUE ESTAVA FALTANDO
+  void _deletarCurriculo(Curriculo curriculoParaDeletar) {
+    setState(() {
+      _todosOsCurriculos.remove(curriculoParaDeletar);
+      _aplicarFiltros({});
+    });
+  }
+
   void _aplicarFiltros(Map<String, dynamic> filters) {
-    // Começa com uma cópia da lista completa de currículos
     List<Curriculo> listaTemporaria = List.from(_todosOsCurriculos);
 
-    // Aplica cada filtro ativo
-    if (filters.containsKey('areaDeInteresse') && filters['areaDeInteresse'] != null) {
-      listaTemporaria = listaTemporaria.where((c) => c.areaDeInteresse == filters['areaDeInteresse']).toList();
+    if (filters['areaDeInteresse'] != null) {
+      listaTemporaria = listaTemporaria
+          .where((c) => c.areaDeInteresse == filters['areaDeInteresse'])
+          .toList();
     }
-    if (filters.containsKey('genero') && filters['genero'] != null) {
-      listaTemporaria = listaTemporaria.where((c) => c.genero == filters['genero']).toList();
+    if (filters['genero'] != null) {
+      listaTemporaria = listaTemporaria
+          .where((c) => c.genero == filters['genero'])
+          .toList();
     }
     if (filters.containsKey('idadeRange')) {
       final RangeValues range = filters['idadeRange'];
-      listaTemporaria = listaTemporaria.where((c) => c.idade >= range.start && c.idade <= range.end).toList();
+      listaTemporaria = listaTemporaria
+          .where((c) => c.idade >= range.start && c.idade <= range.end)
+          .toList();
     }
-    if (filters.containsKey('setor') && filters['setor'] != null) {
-      listaTemporaria = listaTemporaria.where((c) => c.setor == filters['setor']).toList();
+    if (filters['setor'] != null) {
+      listaTemporaria =
+          listaTemporaria.where((c) => c.setor == filters['setor']).toList();
     }
 
-    // Atualiza o estado para que a UI reflita a lista filtrada
     setState(() {
       _curriculosFiltrados = listaTemporaria;
     });
@@ -104,7 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
               itemCount: _curriculosFiltrados.length,
               itemBuilder: (context, index) {
                 final curriculo = _curriculosFiltrados[index];
-                return CurriculoCard(curriculo: curriculo);
+                return CurriculoCard(
+                  curriculo: curriculo,
+                  onDataChanged: (curriculoAtualizado) {
+                    atualizarCurriculo(curriculoAtualizado, curriculo);
+                  },
+                  // A chamada para a função de deletar agora encontrará a função correspondente
+                  onDelete: () {
+                    _deletarCurriculo(curriculo);
+                  },
+                );
               },
             ),
       floatingActionButton: FloatingActionButton(
@@ -116,11 +143,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// O CurriculoCard já exibia o gênero, mas confirmamos que está correto.
 class CurriculoCard extends StatelessWidget {
   final Curriculo curriculo;
+  final Function(Curriculo) onDataChanged;
+  final VoidCallback onDelete;
 
-  const CurriculoCard({Key? key, required this.curriculo}) : super(key: key);
+  const CurriculoCard({
+    Key? key,
+    required this.curriculo,
+    required this.onDataChanged,
+    required this.onDelete,
+  }) : super(key: key);
 
   ImageProvider _getImage(Curriculo curriculo) {
     if (curriculo.fotoBytes != null) {
@@ -143,10 +176,13 @@ class CurriculoCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: 30,
-          backgroundImage: _getImage(curriculo),
-          backgroundColor: Colors.grey[200],
+        leading: Hero(
+          tag: curriculo.nome + curriculo.idade.toString(),
+          child: CircleAvatar(
+            radius: 30,
+            backgroundImage: _getImage(curriculo),
+            backgroundColor: Colors.grey[200],
+          ),
         ),
         title: Text(
           curriculo.nome,
@@ -157,14 +193,24 @@ class CurriculoCard extends StatelessWidget {
           children: [
             const SizedBox(height: 4.0),
             Text('Idade: ${curriculo.idade} anos'),
-            Text('Gênero: ${curriculo.genero}'), // Confirmação da exibição
+            Text('Gênero: ${curriculo.genero}'),
             Text('Área: ${curriculo.areaDeInteresse}'),
             Text('Setor: ${curriculo.setor}'),
           ],
         ),
         trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () {
-          print('Clicou em ${curriculo.nome}');
+        onTap: () async {
+          final resultado = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => DetalhesScreen(curriculo: curriculo),
+            ),
+          );
+
+          if (resultado == 'DELETE') {
+            onDelete();
+          } else if (resultado is Curriculo) {
+            onDataChanged(resultado);
+          }
         },
       ),
     );

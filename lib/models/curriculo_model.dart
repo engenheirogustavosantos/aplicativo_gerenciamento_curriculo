@@ -8,6 +8,7 @@ class Curriculo {
   final String setor;
   final String avatarUrl; // Mantemos para os dados de mock antigos
   final Uint8List? fotoBytes; // NOVO CAMPO para fotos novas
+  final Uint8List? pdfBytes; // <-- 1. NOVO CAMPO ADICIONADO
 
   Curriculo({
     required this.nome,
@@ -17,6 +18,7 @@ class Curriculo {
     required this.setor,
     required this.avatarUrl,
     this.fotoBytes, // NOVO CAMPO
+    this.pdfBytes, // <-- 2. ADICIONADO AO CONSTRUTOR
   });
 }
 
